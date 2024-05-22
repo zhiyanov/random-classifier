@@ -1,394 +1,459 @@
-#include <random>
-#include <vector>
 #include <iostream>
+
+#include <iterator>
+#include <functional>
+#include <optional>
+#include <random>
+
+#include <tuple>
+#include <vector>
+#include <set>
+#include <map>
+
 #include <cmath>
 #include <algorithm>
 
 #include <Eigen/Dense>
 
-#include <pybind11/pybind11.h>
-#include <pybind11/numpy.h>
-#include <pybind11/stl.h>
+// #include <pybind11/pybind11.h>
+// #include <pybind11/numpy.h>
+// #include <pybind11/stl.h>
 
-
-namespace py = pybind11;
+// namespace py = pybind11;
 namespace eg = Eigen;
 
-const int SEED = 733;
-const float EPSILON = 1e-5;
-const int POSITIVE = 1;
-const int NEGATIVE = 0;
+const int kSeed = 733;
 
+const float kEpsilon = 1e-5;
 
-void print(const std::vector<int> &vec) {
-    for (auto const &a: vec) {
-        std::cout << a << " ";
+const int kPositive = 1;
+const int kNegative = 0;
+const int kZero = -1;
+
+// techincal
+template <class Iter, class Stream>
+void Print(Iter begin, Iter end, Stream *stream) {
+    for (auto iter = begin; iter != end; ++iter) {
+        *stream << *iter << " ";
     }
-    std::cout << "\n";
+
+    *stream << "\n";
 }
 
-void print(const std::vector<float> &vec) {
-    for (auto const &a: vec) {
-        std::cout << a << " ";
+template <class Iter, class T>
+void Combinations(Iter begin, Iter end, size_t size, std::vector<T> &cmb,
+                  std::vector<std::vector<T>> &dmp) {
+    if (!size) {
+        dmp.push_back(cmb);
+        return;
     }
-    std::cout << "\n";
+
+    for (auto iter = begin; iter <= end - size; ++iter) {
+        cmb[size - 1] = *iter;
+        Combinations(iter + 1, end, size - 1, cmb, dmp);
+    }
 }
 
-void _comb(
-        const std::vector<int> &arr,
-        int start, int size,
-        std::vector<int> &res,
-        std::vector<int> &dmp
-) {
-    if (size <= 0) {
-        for (auto const &a: res) {
-            dmp.push_back(a);
+template <class Iter, class T>
+auto Combinations(Iter begin, Iter end, size_t size) {
+    if (size > std::distance(begin, end)) {
+        return std::vector<std::vector<T>>{};
+    }
+
+    std::vector<std::vector<T>> dmp;
+    Combinations(begin, end, size, std::vector<T>{size}, dmp);
+
+    return dmp;
+}
+
+auto Combinations(size_t end, size_t size) {
+    std::vector<size_t> indexes{end};
+    for (size_t index = 0; index < end; ++index) {
+        indexes[index] = index;
+    }
+
+    return Combinations<std::vector<size_t>::iterator, size_t>(indexes.begin(), indexes.end(),
+                                                               size);
+}
+
+template <class Iter, class T>
+auto Compliment(Iter begin, Iter end, const std::vector<std::vector<T>> &cmbs) {
+    std::vector<std::vector<T>> cmps;
+    for (const auto& cmb : cmbs) {
+        auto set = std::set{cmb.begin(), cmb.end()};
+
+        std::vector<T> cmp;
+        for (auto val : cmb) {
+            if (set.find(val) == set.end()) {
+                cmp.emplace_back(std::move(val));
+            }
         }
-    } else {
-        for (int i = start; i <= arr.size() - size; ++i) {
-            res[size - 1] = arr[i];
-            _comb(arr, i + 1, size - 1, res, dmp);
-        }
+
+        cmps.emplace_back(std::move(cmp));
     }
+
+    return cmps;
 }
 
-std::vector<int> comb(
-        const std::vector<int> &arr,
-        int size
-) {
-    std::vector<int> combs;
-    std::vector<int> res(size);
-    _comb(arr, 0, size, res, combs);
+std::vector<int> Reverse(const std::vector<int> &y) {
+    std::vector<int> reverse{y};
 
-    return combs;
-}
-
-int misclass(
-        const eg::MatrixXf &X,
-        const std::vector<int> &y,
-        const eg::VectorXf &normal, 
-        const eg::VectorXf &point
-) {
-    int tp = 0, fn = 0;
-    int fp = 0, tn = 0;
-    
-    eg::VectorXf product = (X.rowwise() - point.transpose()) * normal;
-    for (int i = 0; i < y.size(); ++i) {
-        float prod = product(i);
-        
-        if ((prod > EPSILON) && (y[i] == POSITIVE)) {
-            tp += 1;
-        } else if ((prod > EPSILON) && (y[i] == NEGATIVE)) {
-            fp += 1;
-        } else if ((prod < -EPSILON) && (y[i] == POSITIVE)) {
-            fn += 1;
-        } else if ((prod < -EPSILON) && (y[i] == NEGATIVE)) {
-            tn += 1;
-        }
-    }
-    
-    return fp + fn;
-}
-
-std::tuple<int, int, int> classify(
-        const eg::MatrixXf &X,
-        const eg::VectorXf &normal, 
-        const eg::VectorXf &point
-) {
-    int length = X.rows();
-    int dim = X.cols();
-
-    int posnum = 0, negnum = 0, zernum = 0;
-
-    for (int i = 0; i < length; ++i) {
-        eg::VectorXf vector = X(i, eg::indexing::all) - point.transpose();
-        float product = vector.transpose() * normal;
-        
-        if (product > EPSILON) {
-            posnum += 1;
-        } else if (product < -EPSILON) {
-            negnum += 1;
-        } else {
-            zernum += 1;
-        }
-    }
-    
-    return std::tuple<int, int, int>({posnum, negnum, zernum});
-}
-
-eg::VectorXf normalize(
-        const eg::MatrixXf &X,
-        const std::vector<int> &cmb
-) {
-    int length = X.rows();
-    int dim = X.cols();
-
-    eg::VectorXf point = X(cmb[0], eg::indexing::all);
-    eg::MatrixXf M = X.rowwise() - point.transpose();
-
-    eg::BDCSVD<eg::MatrixXf, eg::ComputeFullV> svd(M(
-            cmb,
-            eg::indexing::all
-    ));
-    
-    eg::VectorXf normal = eg::VectorXf::Zero(dim);
-    normal(dim - 1) = 1;
-    normal = svd.matrixV() * normal;
-    
-    return normal;
-}
-
-std::map<std::vector<int>, eg::VectorXf> normalize(
-        const eg::MatrixXf &X
-) {
-    int length = X.rows();
-    int dim = X.cols();
-
-    std::vector<int> indexes(length);
-    for (int i = 0; i < indexes.size(); ++i) {
-        indexes[i] = i;
-    }
-    
-    std::map<std::vector<int>, eg::VectorXf> result;
-  
-    std::vector<int> cmbs = comb(indexes, dim);
-    for (int i = 0; i < cmbs.size() / dim; ++i) {
-        std::vector<int> cmb = std::vector<int>(
-                cmbs.begin() + i * dim,
-                cmbs.begin() + (i + 1) * dim
-        );
-        
-        eg::MatrixXf matrix = X;
-        eg::VectorXf point = X(cmb.back(), eg::indexing::all);
-        matrix.rowwise() -= point.transpose(); 
-
-        eg::VectorXf normal = normalize(
-                matrix,
-                cmb
-        );
-        
-        result.insert({cmb, normal});
-    }
-    
-    return result;
-}
-
-int enm_classify(
-        const eg::MatrixXf &X,
-        const std::vector<int> &y,
-        std::map<std::vector<int>, eg::VectorXf> &normals
-) {
-    int length = X.rows();
-    int dim = X.cols();
-
-    std::vector<int> posinds, neginds;
-    for (int i = 0; i < length; ++i) {
-        if (y[i] == POSITIVE) {
-            posinds.push_back(i);
-        } else if (y[i] == NEGATIVE) {
-            neginds.push_back(i);
+    for (auto &c : reverse) {
+        if (c == kPositive) {
+            c = kNegative;
+        } else if (c == kNegative) {
+            c = kPositive;
         }
     }
 
-    if ((posinds.size() <= dim) || (neginds.size() <= dim)) {
-        return 0;
-    }
+    return reverse;
+}
+// techincal
 
-    std::vector<int> poscmbs = comb(posinds, dim);
-    std::vector<int> negcmbs = comb(neginds, dim);
+// metrics
+struct Confusion {
+    Confusion(const std::vector<int> &ground, const std::vector<int> &pred) {
+        for (size_t i = 0; i < ground.size(); ++i) {
+            if (pred[i] == kZero) {
+                un++;
+            }
 
-    std::vector<int> cmbs;
-    cmbs.insert(cmbs.end(), poscmbs.begin(), poscmbs.end());
-    cmbs.insert(cmbs.end(), negcmbs.begin(), negcmbs.end());
+            if (pred[i] == kPositive && ground[i] == kPositive) {
+                tp++;
+            }
 
-    int result = y.size();
-    for (int i = 0; i < cmbs.size() / dim; ++i) {
-        std::vector<int> cmb = std::vector<int>(
-                cmbs.begin() + i * dim,
-                cmbs.begin() + (i + 1) * dim
-        );
+            if (pred[i] == kPositive && ground[i] == kNegative) {
+                fp++;
+            }
 
-        eg::VectorXf normal = normals[cmb];
-        eg::VectorXf point = X(cmb[0], eg::indexing::all);
-        
-        for (const auto &sign: {1., -1.}) {
-            int score = misclass(
-                    X, y,
-                    normal * sign, point
-            );
+            if (pred[i] == kNegative && ground[i] == kPositive) {
+                fn++;
+            }
 
-            if (score < result) {
-                result = score;
+            if (pred[i] == kNegative && ground[i] == kNegative) {
+                tn++;
             }
         }
     }
-    
-    return result;
-}
 
-std::tuple<int, int> enm_proba_apprx(
-    const py::array_t<float, py::array::c_style> &D,
-    const py::array_t<int, py::array::c_style> &c,
-    int k,
-    float eps
-) {
-    std::mt19937 rng(SEED);
-
-    py::buffer_info D_buf = D.request();
-    int length = D_buf.shape[0];
-    int dim = D_buf.shape[1];
-    
-    float* D_ptr = (float *) D.request().ptr;
-    eg::MatrixXf X(length, dim);
-    for (int i = 0; i < length * dim; ++i) {
-        X(i / dim, i % dim) = *(D_ptr + i);
+    size_t Error() {
+        return fp + fn;
     }
 
-    std::vector<int> y(
-            (int *) c.request().ptr,
-            (int *) c.request().ptr + length
-    );
+    size_t Accur() {
+        return tp + tn + un;
+    }
 
-    std::map<std::vector<int>, eg::VectorXf> normals = \
-            normalize(X);
+    size_t tp = 0;
+    size_t fp = 0;
+    size_t fn = 0;
+    size_t tn = 0;
+    size_t un = 0;
+};
+// metrics
 
-    int count = 0;
-    int iters = (int) (1 / (eps * eps));
-    for (int i = 0; i < iters; ++i) {
+// normalization
+eg::VectorXf Normalize(const eg::MatrixXf &X) {
+    size_t dim = X.cols();
+
+    const auto &point = X(0, eg::indexing::all);
+    auto matrix = X.rowwise() - point.transpose();
+
+    eg::BDCSVD<eg::MatrixXf, eg::ComputeFullV> svd{matrix};
+
+    eg::VectorXf vec = eg::VectorXf::Zero(dim);
+    vec(dim - 1) = 1.;
+
+    return svd.matrixV() * vec;
+}
+// normalization
+
+// linear classifier
+struct LinearClassifier {
+    eg::VectorXf point;
+    eg::VectorXf normal;
+
+    std::vector<int> Predict(const eg::MatrixXf &X) const {
+        size_t length = X.rows();
+
+        std::vector<int> pred;
+        pred.assign(length, 0);
+
+        auto product = (X.rowwise() - point.transpose()) * normal;
+
+        for (size_t i = 0; i < length; ++i) {
+            if (product(i) > kEpsilon) {
+                pred[i] = kPositive;
+            } else if (product(i) < -kEpsilon) {
+                pred[i] = kNegative;
+            } else {
+                pred[i] = kZero;
+            }
+        }
+
+        return pred;
+    }
+
+    static std::vector<LinearClassifier> Build(
+        const eg::MatrixXf &X, const std::vector<std::vector<size_t>> &combinations) {
+        std::vector<LinearClassifier> classifiers;
+        for (const auto &cmb : combinations) {
+            auto point = X(cmb.front(), eg::indexing::all);
+            auto normal = Normalize(X(cmb, eg::indexing::all));
+
+            classifiers.push_back({point, normal});
+        }
+
+        return classifiers;
+    }
+
+    static std::vector<LinearClassifier> Build(const eg::MatrixXf &X) {
+        size_t length = X.rows();
+        size_t dim = X.cols();
+
+        auto combinations = Combinations(length, dim);
+
+        return LinearClassifier::Build(X, combinations);
+    }
+
+    static LinearClassifier Best(const eg::MatrixXf &X,
+                                 const std::vector<LinearClassifier> &classifiers,
+                                 const std::vector<size_t> &indexes,
+                                 std::function<size_t(const std::vector<int> &)> Score) {
+        size_t length = X.rows();
+        size_t dim = X.cols();
+
+        auto best = classifiers.front();
+        auto best_score = Score(best.Predict(X));
+
+        for (auto index : indexes) {
+            auto clf = classifiers[index];
+            auto pred = clf.Predict(X);
+
+            for (auto reverse : {false, true}) {
+                if (reverse) {
+                    pred = Reverse(pred);
+                    clf.normal = -clf.normal;
+                }
+
+                auto score = Score(pred);
+                if (score < best_score) {
+                    best = clf;
+                    best_score = score;
+                }
+            }
+        }
+
+        return best;
+    }
+
+    static LinearClassifier Best(const eg::MatrixXf &X,
+                                 const std::vector<LinearClassifier> &classifiers,
+                                 std::function<size_t(const std::vector<int> &)> Score) {
+        std::vector<size_t> indexes{classifiers.size()};
+        for (size_t index = 0; index < indexes.size(); ++index) {
+            indexes[index] = index;
+        }
+
+        return LinearClassifier::Best(X, classifiers, indexes, Score);
+    }
+};
+// linear classifier
+
+std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, const std::vector<int> &y, size_t k,
+                                       float eps) {
+    size_t length = X.rows();
+    size_t dim = X.cols();
+
+    // classifiers building
+    std::map<std::vector<size_t>, size_t> map;
+    std::vector<LinearClassifier> classifiers;
+    {
+        auto combinations = Combinations(length, dim);
+        for (size_t index = 0; index < combinations.size(); ++index) {
+            map.insert({combinations[index], index});
+        }
+        classifiers = LinearClassifier::Build(X, combinations);
+    }
+
+    // iteration
+    std::mt19937 rng(kSeed);
+
+    size_t count = 0;
+    size_t iters = static_cast<size_t>(1 / (eps * eps));
+    for (size_t i = 0; i < iters; ++i) {
         std::shuffle(y.begin(), y.end(), rng);
 
-        int score = enm_classify(
-                X, y, normals
-        );
-        
-        if (score <= k) {
-            count += 1;
+        std::vector<size_t> trueinds, falseinds;
+        for (size_t i = 0; i < length; ++i) {
+            if (y[i] == kPositive) {
+                trueinds.push_back(i);
+            } else if (y[i] == kNegative) {
+                falseinds.push_back(i);
+            }
+        }
+
+        std::vector<size_t> indexes;
+        for (const auto &cmb : Combinations<std::vector<size_t>::iterator, size_t>(
+                 trueinds.begin(), trueinds.end(), dim)) {
+            indexes.push_back(map[cmb]);
+        }
+        for (const auto &cmb : Combinations<std::vector<size_t>::iterator, size_t>(
+                 falseinds.begin(), falseinds.end(), dim)) {
+            indexes.push_back(map[cmb]);
+        }
+
+        auto best =
+            LinearClassifier::Best(X, classifiers, indexes, [&y](const std::vector<int> &pred) {
+                return Confusion{y, pred}.Error();
+            });
+
+        if (Confusion{y, best.Predict(X)}.Error() <= k) {
+            count++;
         }
     }
 
-    return std::tuple<int, int>({count, iters});
+    return {count, iters};
 }
 
-int binom(int n, int k) {
-   if ((k == 0) || (k == n)) {
-       return 1;
-   }
-
-   return binom(n - 1, k - 1) + binom(n - 1, k);
-}
-
-std::tuple<int, int> enm_proba_exact(
-    const py::array_t<float, py::array::c_style> &D,
-    const py::array_t<int, py::array::c_style> &c
-) {
-    std::mt19937 rng(SEED);
-
-    py::buffer_info D_buf = D.request();
-    int length = D_buf.shape[0];
-    int dim = D_buf.shape[1];
-    
-    float* D_ptr = (float *) D.request().ptr;
-    eg::MatrixXf X(length, dim);
-    for (int i = 0; i < length * dim; ++i) {
-        X(i / dim, i % dim) = *(D_ptr + i);
+size_t Binom(size_t n, size_t k) {
+    if (!k || !n) {
+        return 1;
     }
 
-    std::vector<int> y(
-            (int *) c.request().ptr,
-            (int *) c.request().ptr + length
-    );
+    return Binom(n - 1, k - 1) + Binom(n - 1, k);
+}
 
-    int posnum = 0, negnum = 0;
-    for (auto const &a: y) {
-        if (a == POSITIVE) {
-            posnum += 1;
-        } else if (a == NEGATIVE) {
-            negnum += 1;
+std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, size_t n, size_t t,
+                                                                     size_t f, size_t k) {
+    // true positive
+    if (p * 2 + n < f + k || (p * 2 + n - f - k) % 2) {
+        return std::nullopt;
+    }
+    auto tp = (p * 2 + n - f - k) / 2;
+
+    // false positive
+    if (f + k < n || (f + k - n) % 2) {
+        return std::nullopt;
+    }
+    auto fp = (f + k - n) / 2;
+
+    // false negative
+    if (n + k < f || (n + k - f) % 2) {
+        return std::nullopt;
+    }
+    auto fn = (n + k - f) / 2;
+
+    // true negative
+    if (f + n < k || (f + n - k) % 2) {
+        return std::nullopt;
+    }
+    auto tn = (f + n - k) / 2;
+
+    return {{tp, fp, fn, tn}};
+}
+
+std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<int> &y, size_t k) {
+    size_t length = X.rows();
+    size_t dim = X.cols();
+
+    size_t truenum = 0, falsenum = 0;
+    for (auto a : y) {
+        if (a == kPositive) {
+            truenum++;
+        } else if (a == kNegative) {
+            falsenum++;
         }
     }
-    
-    std::vector<int> indexes(length);
-    for (int i = 0; i < indexes.size(); ++i) {
-        indexes[i] = i;
+
+    // classifiers building
+    std::map<std::vector<size_t>, size_t> map;
+    std::vector<LinearClassifier> classifiers;
+    {
+        auto combinations = Combinations(length, dim);
+        for (size_t index = 0; index < combinations.size(); ++index) {
+            map.insert({combinations[index], index});
+        }
+        classifiers = LinearClassifier::Build(X, combinations);
     }
-    
-    std::set<std::vector<int>> colors;
-    std::vector<int> cmbs = comb(indexes, dim);
-    for (int i = 0; i < cmbs.size() / dim; ++i) {
-        std::vector<int> cmb = std::vector<int>(
-                cmbs.begin() + i * dim,
-                cmbs.begin() + (i + 1) * dim
-        );
-        
-        eg::VectorXf normal = normalize(X, cmb);
-        eg::VectorXf point = X(cmb[0], eg::indexing::all);
-        for (const auto &sign: {1., -1.}) {
-            normal = normal * sign;
 
-            std::tuple<int, int, int> clf = classify(
-                    X, normal, point
-            );
-            int pos = std::get<0>(clf); 
-            int neg = std::get<1>(clf); 
-            int zer = std::get<2>(clf);
+    // iteration
+    std::set<std::vector<size_t>> colors;
+    for (const auto &[cmb, index] : map) {
+        auto clf = classifiers[index];
+        auto pred = clf.Predict(X);
 
-            int score = std::abs(posnum - pos) + \
-                        std::abs(negnum - neg) - zer;
-
-            if (score > 0) {
-                continue;
+        for (auto reverse : {false, true}) {
+            if (reverse) {
+                pred = Reverse(pred);
+                clf.normal = -clf.normal;
             }
 
-            eg::VectorXf product = (
-                    X.rowwise() - point.transpose()
-            ) * normal;
-
-            std::vector<int> positives;
-            std::vector<int> zeroes;
-            for (int j = 0; j < length; ++j) {
-                float prod = product(j);
-
-                if (prod > EPSILON) {
-                    positives.push_back(j);
-                } else if (std::abs(prod) < EPSILON) {
-                    zeroes.push_back(j);
+            // predict
+            std::vector<size_t> posinds, neginds, zeroinds;
+            for (size_t i = 0; i < length; ++i) {
+                if (pred[i] == kPositive) {
+                    posinds.push_back(i);
+                } else if (pred[i] == kNegative) {
+                    neginds.push_back(i);
+                } else {
+                    zeroinds.push_back(i);
                 }
             }
-            
-            int diff = posnum - pos;
 
-            if (diff == 0) {
-                std::sort(positives.begin(), positives.end());
-                colors.insert(positives);
-                continue;
-            }
+            // distribute zeros
+            for (size_t zero2pos = 0; zero2pos <= zeroinds.size(); ++zero2pos) {
+                auto zero2neg = zeroinds.size() - zero2pos;
 
-            std::vector<int> zcmbs = comb(zeroes, diff);
-            for (int j = 0; j < zcmbs.size() / diff; ++j) {
-                std::vector<int> points(positives);
-                std::vector<int> zcmb = std::vector<int>(
-                        zcmbs.begin() + j * diff,
-                        zcmbs.begin() + (j + 1) * diff
-                );
-                
-                for (auto const &a: zcmb) {
-                    points.push_back(a);
+                for (size_t err = 0; err <= k; ++err) {
+                    auto distribute = Distribute(posinds.size() + zero2pos,
+                                                 neginds.size() + zero2neg, truenum, falsenum, err);
+
+                    if (!distribute) {
+                        continue;
+                    }
+
+                    auto [tp, fp, fn, tn] = distribute.value();
+
+                    auto combs2pos = Combinations<std::vector<size_t>::iterator, size_t>(
+                        zeroinds.begin(), zeroinds.end(), zero2pos);
+                    auto combs2neg = Compliment<std::vector<size_t>::iterator, size_t>(
+                        zeroinds.begin(), zeroinds.end(), combs2pos);
+                    for (size_t zcmbi = 0; zcmbi < combs2pos.size(); ++zcmbi) {
+                        posinds.insert(posinds.end(), combs2pos[zcmbi].begin(), combs2pos[zcmbi].end());
+                        neginds.insert(neginds.end(), combs2pos[zcmbi].begin(), combs2pos[zcmbi].end());
+                    }
+
+                    break;
                 }
-
-                std::sort(points.begin(), points.end());
-
-                colors.insert(points);
             }
         }
     }
 
-    int count = colors.size();
-    return std::tuple<int, int>(
-            {count, binom(posnum + negnum, posnum)}
-    );
+    return {colors.size(), Binom(truenum + falsenum, truenum)};
 }
 
-PYBIND11_MODULE(fast, m) {
-    m.def("enm_proba_exact", &enm_proba_exact);
-    m.def("enm_proba_apprx", &enm_proba_apprx);
-}
+// std::tuple<eg::MatrixXf, std::vector<int>>
+// Extract(const py::array_t<float, py::array::c_style> &D,
+//         const py::array_t<int, py::array::c_style> &c) {
+//
+//     size_t length = D.request().shape[0];
+//     size_t dim = D.request().shape[1];
+//
+//     // data extraction
+//     auto *data_ptr = static_cast<float *>(D.request().ptr);
+//     eg::MatrixXf X{length, dim};
+//     for (size_t i = 0; i < length * dim; ++i) {
+//         X(i / dim, i % dim) = *(data_ptr + i);
+//     }
+//
+//     auto *class_ptr = static_cast<float *>(c.request().ptr);
+//     std::vector<int> y{class_ptr, class_ptr + length};
+//
+//     return {X, y};
+// }
+
+// PYBIND11_MODULE(fast, m) {
+//     m.def("enm_proba_exact", &enm_proba_exact);
+//     m.def("enm_proba_apprx", &enm_proba_apprx);
+// }
