@@ -15,7 +15,6 @@
 #include <array>
 #include <vector>
 #include <set>
-#include <map>
 
 #include <cmath>
 #include <algorithm>
@@ -23,14 +22,7 @@
 
 #include <thread>
 
-// #include <Eigen/Dense>
-
-// #include <pybind11/pybind11.h>
-// #include <pybind11/numpy.h>
-// #include <pybind11/stl.h>
-
-// namespace py = pybind11;
-// namespace eg = Eigen;
+namespace eg = Eigen;
 
 constexpr int kSeed = 733;
 constexpr std::array kSeeds = {123, 452, 864, kSeed};
