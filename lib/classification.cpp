@@ -396,30 +396,3 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
     std::cerr << "\n";
     return {colors.size(), Binom(truenum + falsenum, truenum)};
 }
-
-/*
-// std::tuple<eg::MatrixXf, std::vector<int>>
-// Extract(const py::array_t<float, py::array::c_style> &D,
-//         const py::array_t<int, py::array::c_style> &c) {
-//
-//     size_t length = D.request().shape[0];
-//     size_t dim = D.request().shape[1];
-//
-//     // data extraction
-//     auto *data_ptr = static_cast<float *>(D.request().ptr);
-//     eg::MatrixXf X{length, dim};
-//     for (size_t i = 0; i < length * dim; ++i) {
-//         X(i / dim, i % dim) = *(data_ptr + i);
-//     }
-//
-//     auto *class_ptr = static_cast<float *>(c.request().ptr);
-//     std::vector<int> y{class_ptr, class_ptr + length};
-//
-//     return {X, y};
-// }
-
-// PYBIND11_MODULE(fast, m) {
-//     m.def("enm_proba_exact", &enm_proba_exact);
-//     m.def("enm_proba_apprx", &enm_proba_apprx);
-// }
-*/
