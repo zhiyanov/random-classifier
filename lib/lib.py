@@ -1,8 +1,10 @@
+from .fast import enm_proba_exact
+from .fast import enm_proba_apprx
+
 import numpy as np
 from sklearn.svm import SVC
 
-from .fast import enm_proba_exact
-from .fast import enm_proba_apprx
+import tqdm
 
 LEFT = 1e-3
 RIGHT = 1e+3
@@ -33,7 +35,7 @@ def svm_classify(X, y):
 def svm_proba(X, y, k, eps):
     prb = 0
     iters = int(1 / eps**2)
-    for i in range(iters):
+    for i in tqdm.tqdm(range(iters), total=iters):
         score = svm_classify(
                 X,
                 y[np.random.permutation(len(y))]

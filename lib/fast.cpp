@@ -55,7 +55,7 @@ std::tuple<size_t, size_t> enm_proba_apprx(const py::array_t<float, py::array::c
     return Approximate(X, y, k, eps);
 }
 
-PYBIND11_MODULE(fast, fast_) {
-    fast_.def("enm_proba_exact", &enm_proba_exact);
-    fast_.def("enm_proba_apprx", &enm_proba_apprx);
+PYBIND11_MODULE(fast, m) {
+    m.def("enm_proba_exact", &enm_proba_exact);
+    m.def("enm_proba_apprx", &enm_proba_apprx);
 }
