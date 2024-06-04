@@ -10,6 +10,8 @@ LEFT = 1e-3
 RIGHT = 1e+3
 EPS = 1e-4
 
+SEED = 42
+np.random.seed(SEED)
 
 def binary(func, left, right, eps):
     while right - left > eps:
@@ -33,7 +35,7 @@ def svm_classify(X, y):
     return len(X) * (1 - svm.score(X, y))
 
 def svm_proba(X, y, k, eps):
-    prb = 0
+    prb_less, prb_equal = 0, 0
     iters = int(1 / eps**2)
     for i in tqdm.tqdm(range(iters), total=iters):
         score = svm_classify(
@@ -42,6 +44,9 @@ def svm_proba(X, y, k, eps):
         )
 
         if score <= k:
-            prb += 1
+            prb_equal += 1
 
-    return prb, iters
+        if score < k:
+            prb_less += 1
+
+    return prb_equal - prb_less, iters
