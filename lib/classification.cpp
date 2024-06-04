@@ -25,7 +25,7 @@
 namespace eg = Eigen;
 
 constexpr int kSeed = 733;
-constexpr std::array kSeeds = {123, 452, 864, kSeed};
+constexpr std::array kSeeds = {123, 452, 864, 934, 937, 481, 853, kSeed};
 
 constexpr float kEpsilon = 1e-5;
 
@@ -206,38 +206,34 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
 
     size_t count = 0;
     size_t iters = static_cast<size_t>(1 / (eps * eps));
+
+    auto step = [&] {
+        std::shuffle(y.begin(), y.end(), rng);
     
-    if (seed == kSeed) {
-        for (auto iter : tq::trange(++iters)) {
-            std::shuffle(y.begin(), y.end(), rng);
-        
-            auto loss = [&y](const std::vector<Class> &pred) {
-                auto conf = Confusion{y, pred};
-                return conf.Error();
-            };
+        auto loss = [&y](const std::vector<Class> &pred) {
+            auto conf = Confusion{y, pred};
+            return conf.Error();
+        };
 
-            auto clf = LinearClassifier::Fit(X, loss, clfs);
+        for (const auto& clf : clfs) {
+            auto prediction = clf.Predict(X);
 
-            if (loss(clf.Predict(X)) <= k) {
+            if (loss(prediction) == k || loss(Reverse(prediction)) == k) {
                 count++;
+                break;
             }
+        }
+    };
+    
+    if constexpr (seed == kSeed) {
+        for (auto iter : tq::trange(++iters)) {
+            step();
         }
         
         std::cerr << "\n";
     } else {
         for (size_t iter = 0; iter < iters; ++iter) {
-            std::shuffle(y.begin(), y.end(), rng);
-        
-            auto loss = [&y](const std::vector<Class> &pred) {
-                auto conf = Confusion{y, pred};
-                return conf.Error();
-            };
-
-            auto clf = LinearClassifier::Fit(X, loss, clfs);
-
-            if (loss(clf.Predict(X)) <= k) {
-                count++;
-            }
+            step();
         }
     }
 
@@ -246,27 +242,42 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
 
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
                                        size_t k, float eps) {
-    std::array<std::tuple<size_t, size_t>, 4> apps;
+    std::array<std::tuple<size_t, size_t>, 8> apps;
     std::vector<std::thread> threads;
     threads.emplace_back([&]() {
-        apps[0] = Approximate<kSeeds[0]>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+        apps[0] = Approximate<kSeeds[0]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[1] = Approximate<kSeeds[1]>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+        apps[1] = Approximate<kSeeds[1]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[2] = Approximate<kSeeds[2]>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+        apps[2] = Approximate<kSeeds[2]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[3] = Approximate<kSeeds[3]>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+        apps[3] = Approximate<kSeeds[3]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+    });
+    threads.emplace_back([&]() {
+        apps[4] = Approximate<kSeeds[4]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+    });
+    threads.emplace_back([&]() {
+        apps[5] = Approximate<kSeeds[5]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+    });
+    threads.emplace_back([&]() {
+        apps[6] = Approximate<kSeeds[6]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+    });
+    threads.emplace_back([&]() {
+        apps[7] = Approximate<kSeeds[7]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
 
     for (auto&& thread: threads) {
         thread.join();
     }
 
-    auto nominator = std::get<0>(apps[0]) + std::get<0>(apps[1]) + std::get<0>(apps[1]) + std::get<0>(apps[3]);
-    auto denominator = std::get<1>(apps[0]) + std::get<1>(apps[1]) + std::get<1>(apps[1]) + std::get<1>(apps[3]);
+    auto nominator = std::get<0>(apps[0]) + std::get<0>(apps[1]) + std::get<0>(apps[1]) + std::get<0>(apps[3])
+                   + std::get<0>(apps[4]) + std::get<0>(apps[5]) + std::get<0>(apps[6]) + std::get<0>(apps[7]);
+
+    auto denominator = std::get<1>(apps[0]) + std::get<1>(apps[1]) + std::get<1>(apps[1]) + std::get<1>(apps[3])
+                     + std::get<1>(apps[4]) + std::get<1>(apps[5]) + std::get<1>(apps[6]) + std::get<1>(apps[7]);
 
     return {nominator, denominator};
 }
@@ -352,43 +363,41 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
                 auto zero2neg = zeroinds.size() - zero2pos;
 
                 // distribute ground
-                for (size_t err = 0; err <= k; ++err) {
-                    auto distribute = Distribute(posinds.size() + zero2pos,
-                                                 neginds.size() + zero2neg, truenum, falsenum, err);
+                auto distribute = Distribute(posinds.size() + zero2pos,
+                                             neginds.size() + zero2neg, truenum, falsenum, k);
 
-                    if (!distribute) {
-                        continue;
-                    }
-
-                    auto [tp, fp, fn, tn] = distribute.value();
-
-                    auto zero_combs = Combinations(zeroinds.begin(), zeroinds.end(), zero2pos);
-                    do {
-                        auto z2p_cmb = zero_combs.Get();
-                        auto z2n_cmb = Residual(zeroinds.begin(), zeroinds.end(),
-                                                z2p_cmb.begin(), z2p_cmb.end());
-
-                        auto positives = posinds;
-                        positives.insert(positives.end(), z2p_cmb.begin(), z2p_cmb.end());
-                        auto negatives = neginds;
-                        negatives.insert(negatives.end(), z2n_cmb.begin(), z2n_cmb.end());
-
-                        auto tp_combs = Combinations(positives.begin(), positives.end(), tp);
-                        auto fn_combs = Combinations(negatives.begin(), negatives.end(), fn);
-                        do {
-                            auto tp_comb = tp_combs.Get();
-                            do {
-                                auto fn_comb = fn_combs.Get();
-
-                                auto trues = tp_comb;
-                                trues.insert(trues.end(), fn_comb.begin(), fn_comb.end());
-
-                                std::sort(trues.begin(), trues.end());
-                                colors.emplace(std::move(trues));
-                            } while (fn_combs.Next());
-                        } while (tp_combs.Next());
-                    } while (zero_combs.Next());
+                if (!distribute) {
+                    continue;
                 }
+
+                auto [tp, fp, fn, tn] = distribute.value();
+
+                auto zero_combs = Combinations(zeroinds.begin(), zeroinds.end(), zero2pos);
+                do {
+                    auto z2p_cmb = zero_combs.Get();
+                    auto z2n_cmb = Residual(zeroinds.begin(), zeroinds.end(),
+                                            z2p_cmb.begin(), z2p_cmb.end());
+
+                    auto positives = posinds;
+                    positives.insert(positives.end(), z2p_cmb.begin(), z2p_cmb.end());
+                    auto negatives = neginds;
+                    negatives.insert(negatives.end(), z2n_cmb.begin(), z2n_cmb.end());
+
+                    auto tp_combs = Combinations(positives.begin(), positives.end(), tp);
+                    auto fn_combs = Combinations(negatives.begin(), negatives.end(), fn);
+                    do {
+                        auto tp_comb = tp_combs.Get();
+                        do {
+                            auto fn_comb = fn_combs.Get();
+
+                            auto trues = tp_comb;
+                            trues.insert(trues.end(), fn_comb.begin(), fn_comb.end());
+
+                            std::sort(trues.begin(), trues.end());
+                            colors.emplace(std::move(trues));
+                        } while (fn_combs.Next());
+                    } while (tp_combs.Next());
+                } while (zero_combs.Next());
             }
         }
     }
