@@ -191,22 +191,28 @@ int main() {
     //           0);
     
     // TestExact(eg::MatrixXf({{0, 0}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8}, {0, 1}, {0.2, 1}, {0.4, 1}, {0.6, 1}, {0.8, 1}, {1, 1},
-    //                        {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
+    //                         {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
     //           std::vector<Class>({Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative,
     //                               Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive}),
     //           0);
     
     // std::cout << "TestExactOne\n"; 
     // TestExact(eg::MatrixXf({{0, 0}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8}, {0, 1}, {0.2, 1}, {0.4, 1}, {0.6, 1}, {0.8, 1}, {1, 1},
-    //                        {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
+    //                         {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
     //           std::vector<Class>({Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative,
     //                               Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive}),
     //           5);
 
     std::cout << "TestProba\n"; 
-    TestProba(eg::MatrixXf({{0, 0}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8}, {0, 1}, {0.2, 1}, {0.4, 1}, {0.6, 1}, {0.8, 1}, {1, 1},
-                           {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
-              std::vector<Class>({Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative,
-                                  Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive}),
-              5, 1e-2);
+    // TestProba(eg::MatrixXf({{0, 0}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8}, {0, 1}, {0.2, 1}, {0.4, 1}, {0.6, 1}, {0.8, 1}, {1, 1},
+    //                         {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
+    //           std::vector<Class>({Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative,
+    //                               Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive}),
+    //           5, 1e-2);
+    
+    TestProba(eg::MatrixXf({{-0.7818573, 0.6833011}, {0.75712043, -2.1393983},
+                            {-0.22626108, 1.0697957}, {-0.8172108, -1.2328817}}),
+              std::vector<Class>({Class::Negative, Class::Negative,
+                                  Class::Positive, Class::Positive}),
+              0, 1e-2);
 }

@@ -28,7 +28,7 @@ std::tuple<eg::MatrixXf, std::vector<Class>> Extract(const py::array_t<float, py
     }
     
     // class extraction
-    auto *class_ptr = static_cast<float *>(c.request().ptr);
+    auto *class_ptr = static_cast<int *>(c.request().ptr);
     std::vector<Class> y;
     for (size_t index  = 0; index < length; ++index) {
         if (*class_ptr == kPositive) {
