@@ -8,12 +8,29 @@
 #include <pybind11/stl.h>
 
 #include <vector>
+#include <iostream>
 
 namespace eg = Eigen;
 namespace py = pybind11;
 
 constexpr int kPositive = 1;
 constexpr int kNegative = 0;
+
+void Print(const eg::MatrixXf& matrix) {
+    for (size_t row = 0; row < matrix.rows(); ++row) {
+        for (size_t col = 0; col < matrix.cols(); ++col) {
+            std::cout << matrix(row, col) << " ";
+        }
+        std::cout << "\n";
+    }
+}
+
+void Print(const std::vector<Class>& vector) {
+    for (const auto& val : vector) {
+        std::cout << val << " ";
+    }
+    std::cout << "\n";
+}
 
 std::tuple<eg::MatrixXf, std::vector<Class>> Extract(const py::array_t<float, py::array::c_style> &D,
                                                      const py::array_t<int, py::array::c_style> &c) {
@@ -31,9 +48,9 @@ std::tuple<eg::MatrixXf, std::vector<Class>> Extract(const py::array_t<float, py
     auto *class_ptr = static_cast<int *>(c.request().ptr);
     std::vector<Class> y;
     for (size_t index  = 0; index < length; ++index) {
-        if (*class_ptr == kPositive) {
+        if (*(class_ptr + index) == kPositive) {
             y.push_back(Class::Positive);
-        } else if (*class_ptr == kNegative) {
+        } else if (*(class_ptr + index) == kNegative) {
             y.push_back(Class::Negative);
         }
     }
@@ -44,15 +61,26 @@ std::tuple<eg::MatrixXf, std::vector<Class>> Extract(const py::array_t<float, py
 std::tuple<size_t, size_t> enm_proba_exact(const py::array_t<float, py::array::c_style> &D,
                                            const py::array_t<int, py::array::c_style> &c,
                                            size_t k) {
+    
     auto [X, y] = Extract(D, c);
-    return Exact(X, y, k);
+    Print(X);
+    Print(y);
+    auto [nominator, denominator] = Exact(X, y, k);
+    std::cerr << nominator << " " << denominator << "\n";
+
+    return {nominator, denominator};
 }
 
 std::tuple<size_t, size_t> enm_proba_apprx(const py::array_t<float, py::array::c_style> &D,
                                            const py::array_t<int, py::array::c_style> &c,
                                            size_t k, float eps) {
     auto [X, y] = Extract(D, c);
-    return Approximate(X, y, k, eps);
+    Print(X);
+    Print(y);
+    auto [nominator, denominator] = Approximate(X, y, k, eps);
+    std::cerr << nominator << " " << denominator << "\n";
+
+    return {nominator, denominator};
 }
 
 PYBIND11_MODULE(fast, m) {

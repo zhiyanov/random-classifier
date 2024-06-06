@@ -92,8 +92,10 @@ void TestProba(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k, flo
     float ext_proba = ext_nominator;
     ext_proba /= ext_denominator;
 
+    std::cout << "Approximate: " << app_nominator << " " << app_denominator << "\n";
+    std::cout << "Exact: " << ext_nominator << " " << ext_denominator << "\n";
     std::cout << app_proba << " " << ext_proba << " ";
-    std::cout << (std::fabs(app_proba - ext_proba) < eps * 9) << "\n" ;
+    std::cout << (std::fabs(app_proba - ext_proba) < eps * 9) << "\n";
 }
 
 int main() {
@@ -210,8 +212,8 @@ int main() {
     //                               Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive}),
     //           5, 1e-2);
     
-    TestProba(eg::MatrixXf({{-0.7818573, 0.6833011}, {0.75712043, -2.1393983},
-                            {-0.22626108, 1.0697957}, {-0.8172108, -1.2328817}}),
+    TestProba(eg::MatrixXf({{-0.54827213, 0.05780018}, {-0.05645907, 0.726147},
+                            {1.0522097, 0.1956428}, {-0.24426988, 0.92464584}}),
               std::vector<Class>({Class::Negative, Class::Negative,
                                   Class::Positive, Class::Positive}),
               0, 1e-2);

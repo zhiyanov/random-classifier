@@ -24,8 +24,7 @@
 
 namespace eg = Eigen;
 
-constexpr int kSeed = 733;
-constexpr std::array kSeeds = {123, 452, 864, 934, 937, 481, 853, kSeed};
+constexpr std::array kSeeds = {123, 452, 864, 934, 937, 481, 853, 733};
 
 constexpr float kEpsilon = 1e-5;
 
@@ -188,7 +187,11 @@ LinearClassifier LinearClassifier::Opposite() const {
 }
 // linclass
 
-template <int seed>
+template <size_t seed, bool visualize>
+std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
+                                       size_t k, float eps);
+
+template <size_t seed, bool visualize>
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
                                        size_t k, float eps) {
     size_t length = X.rows();
@@ -225,7 +228,7 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
         }
     };
     
-    if constexpr (seed == kSeed) {
+    if constexpr (visualize) {
         for (auto iter : tq::trange(++iters)) {
             step();
         }
@@ -242,42 +245,62 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
 
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
                                        size_t k, float eps) {
-    std::array<std::tuple<size_t, size_t>, 8> apps;
+    std::array<std::tuple<size_t, size_t>, kSeeds.size()> apps;
     std::vector<std::thread> threads;
+
+    /*
     threads.emplace_back([&]() {
-        apps[0] = Approximate<kSeeds[0]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[0] = Approximate<kSeeds[0], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[1] = Approximate<kSeeds[1]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[1] = Approximate<kSeeds[1], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[2] = Approximate<kSeeds[2]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[2] = Approximate<kSeeds[2], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[3] = Approximate<kSeeds[3]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[3] = Approximate<kSeeds[3], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[4] = Approximate<kSeeds[4]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[4] = Approximate<kSeeds[4], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[5] = Approximate<kSeeds[5]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[5] = Approximate<kSeeds[5], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[6] = Approximate<kSeeds[6]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[6] = Approximate<kSeeds[6], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
     });
     threads.emplace_back([&]() {
-        apps[7] = Approximate<kSeeds[7]>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+        apps[7] = Approximate<kSeeds[7], true>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
+    });
+    */
+    
+    threads.emplace_back([&]() {
+        apps[0] = Approximate<kSeeds[0], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+    });
+    threads.emplace_back([&]() {
+        apps[1] = Approximate<kSeeds[1], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+    });
+    threads.emplace_back([&]() {
+        apps[2] = Approximate<kSeeds[2], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+    });
+    threads.emplace_back([&]() {
+        apps[3] = Approximate<kSeeds[3], true>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
     });
 
     for (auto&& thread: threads) {
         thread.join();
     }
 
+    /*
     auto nominator = std::get<0>(apps[0]) + std::get<0>(apps[1]) + std::get<0>(apps[1]) + std::get<0>(apps[3])
                    + std::get<0>(apps[4]) + std::get<0>(apps[5]) + std::get<0>(apps[6]) + std::get<0>(apps[7]);
 
     auto denominator = std::get<1>(apps[0]) + std::get<1>(apps[1]) + std::get<1>(apps[1]) + std::get<1>(apps[3])
                      + std::get<1>(apps[4]) + std::get<1>(apps[5]) + std::get<1>(apps[6]) + std::get<1>(apps[7]);
+    */
+    auto nominator = std::get<0>(apps[0]) + std::get<0>(apps[1]) + std::get<0>(apps[1]) + std::get<0>(apps[3]);
+    auto denominator = std::get<1>(apps[0]) + std::get<1>(apps[1]) + std::get<1>(apps[1]) + std::get<1>(apps[3]);
 
     return {nominator, denominator};
 }
