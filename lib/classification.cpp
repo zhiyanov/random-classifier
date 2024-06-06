@@ -285,7 +285,7 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
         apps[2] = Approximate<kSeeds[2], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
     });
     threads.emplace_back([&]() {
-        apps[3] = Approximate<kSeeds[3], true>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
+        apps[3] = Approximate<kSeeds[3], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
     });
 
     for (auto&& thread: threads) {
@@ -335,6 +335,7 @@ std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, s
     return {{tp, fp, fn, tn}};
 }
 
+template<bool visualize>
 std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k) {
     size_t length = X.rows();
     size_t dim = X.cols();
@@ -360,7 +361,8 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
 
     // iteration
     std::set<std::vector<int>> colors;
-    for (auto clf : tq::tqdm(clfs)) {
+    
+    auto step = [&](LinearClassifier clf) {
         auto pred = clf.Predict(X);
 
         for (auto reverse : {false, true}) {
@@ -423,8 +425,23 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
                 } while (zero_combs.Next());
             }
         }
+    };
+
+    if constexpr (visualize) {
+        for (const auto& clf : tq::tqdm(clfs)) {
+            step(clf);
+        }
+        
+        std::cerr << "\n";
+    } else {
+        for (const auto& clf : clfs) {
+            step(clf);
+        }
     }
 
-    std::cerr << "\n";
     return {colors.size(), Binom(truenum + falsenum, truenum)};
+}
+
+std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k) {
+    return Exact<false>(X, y, k);
 }
