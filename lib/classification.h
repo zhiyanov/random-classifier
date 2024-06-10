@@ -67,5 +67,6 @@ private:
 // linclass
 
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y, size_t k,
-                                       float eps);
-std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k);
+                                       float eps, size_t parallel);
+std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
+                                 size_t parallel);
