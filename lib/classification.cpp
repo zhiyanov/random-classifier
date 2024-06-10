@@ -31,7 +31,8 @@ constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763, 59,  263, 922,
                                326, 797, 22,  295, 362, 939, 319, 403, 789, 702, 964, 346, 887,
                                743, 235, 276, 631, 597, 772, 459, 738, 376, 146, 949, 901};
 
-constexpr size_t kThreads = kSeeds.size();
+constexpr size_t kApproximate = 64;
+constexpr size_t kExact = 16;
 
 constexpr float kEpsilon = 1e-5;
 
@@ -375,7 +376,7 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
 }
 
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y, size_t k,
-                                       float eps, size_t parallel = kThreads) {
+                                       float eps, size_t parallel) {
     std::tuple<size_t, size_t> drain;
 
     std::mutex mutex;
@@ -406,7 +407,7 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
 }
 
 std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
-                                 size_t parallel = kThreads) {
+                                 size_t parallel) {
     size_t length = X.rows();
     size_t dim = X.cols();
 

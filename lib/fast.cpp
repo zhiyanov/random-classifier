@@ -16,7 +16,8 @@ namespace py = pybind11;
 constexpr int kPositive = 1;
 constexpr int kNegative = 0;
 
-constexpr size_t kThreads = 32;
+constexpr size_t kApproximate = 64;
+constexpr size_t kExact = 16;
 
 std::tuple<eg::MatrixXf, std::vector<Class>> Extract(
     const py::array_t<float, py::array::c_style> &D,
@@ -45,19 +46,19 @@ std::tuple<eg::MatrixXf, std::vector<Class>> Extract(
     return {X, y};
 }
 
+std::tuple<size_t, size_t> enm_proba_apprx(const py::array_t<float, py::array::c_style> &D,
+                                           const py::array_t<int, py::array::c_style> &c, size_t k,
+                                           float eps, size_t parallel = kApproximate) {
+    auto [X, y] = Extract(D, c);
+    return Approximate(X, y, k, eps, parallel);
+}
+
 std::tuple<size_t, size_t> enm_proba_exact(const py::array_t<float, py::array::c_style> &D,
                                            const py::array_t<int, py::array::c_style> &c, size_t k,
-                                           size_t parallel = kThreads) {
+                                           size_t parallel = kExact) {
 
     auto [X, y] = Extract(D, c);
     return Exact(X, y, k, parallel);
-}
-
-std::tuple<size_t, size_t> enm_proba_apprx(const py::array_t<float, py::array::c_style> &D,
-                                           const py::array_t<int, py::array::c_style> &c, size_t k,
-                                           float eps, size_t parallel = kThreads) {
-    auto [X, y] = Extract(D, c);
-    return Approximate(X, y, k, eps, parallel);
 }
 
 PYBIND11_MODULE(fast, m) {
