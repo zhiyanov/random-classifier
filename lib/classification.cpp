@@ -25,14 +25,11 @@
 
 namespace eg = Eigen;
 
-constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763,  59,
-                               263, 922, 165, 531, 634, 350, 285, 158,
-                               968, 807, 716, 348, 675, 679, 468, 396,
-                               424, 286, 919, 253, 935, 752, 237,  73,
-                               732,   9, 477,  39, 446,  55, 386, 326,
-                               797,  22, 295, 362, 939, 319, 403, 789,
-                               702, 964, 346, 887, 743, 235, 276, 631,
-                               597, 772, 459, 738, 376, 146, 949, 901};
+constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763, 59,  263, 922, 165, 531, 634,
+                               350, 285, 158, 968, 807, 716, 348, 675, 679, 468, 396, 424, 286,
+                               919, 253, 935, 752, 237, 73,  732, 9,   477, 39,  446, 55,  386,
+                               326, 797, 22,  295, 362, 939, 319, 403, 789, 702, 964, 346, 887,
+                               743, 235, 276, 631, 597, 772, 459, 738, 376, 146, 949, 901};
 
 constexpr size_t kThreads = kSeeds.size();
 
@@ -106,8 +103,7 @@ eg::VectorXf Normalize(const eg::MatrixXf &X) {
 // normalization
 
 // linclass
-LinearClassifier::LinearClassifier(const eg::VectorXf& point,
-                                   const eg::VectorXf& normal)
+LinearClassifier::LinearClassifier(const eg::VectorXf &point, const eg::VectorXf &normal)
     : point_{point}, normal_{normal} {
 }
 
@@ -116,12 +112,13 @@ LinearClassifier::LinearClassifier(const eg::MatrixXf &X) {
     normal_ = Normalize(X);
 }
 
-LinearClassifier LinearClassifier::Fit(const eg::MatrixXf &X, std::function<int(const std::vector<Class> &)> Loss) {
+LinearClassifier LinearClassifier::Fit(const eg::MatrixXf &X,
+                                       std::function<int(const std::vector<Class> &)> Loss) {
     size_t length = X.rows();
     size_t dim = X.cols();
 
     auto combs = Combs(length, dim);
-    
+
     LinearClassifier best_clf{X(combs.Get(), eg::indexing::all)};
     auto best_loss = Loss(best_clf.Predict(X));
 
@@ -146,7 +143,8 @@ LinearClassifier LinearClassifier::Fit(const eg::MatrixXf &X, std::function<int(
     return best_clf;
 }
 
-LinearClassifier LinearClassifier::Fit(const eg::MatrixXf &X, std::function<int(const std::vector<Class> &)> Loss,
+LinearClassifier LinearClassifier::Fit(const eg::MatrixXf &X,
+                                       std::function<int(const std::vector<Class> &)> Loss,
                                        const std::vector<LinearClassifier> &clfs) {
     LinearClassifier best_clf = clfs.front();
     auto best_loss = Loss(best_clf.Predict(X));
@@ -198,8 +196,8 @@ LinearClassifier LinearClassifier::Opposite() const {
 // linclass
 
 template <bool visualize>
-std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
-                                       size_t k, float eps, size_t seed) {
+std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y, size_t k,
+                                       float eps, size_t seed) {
     size_t length = X.rows();
     size_t dim = X.cols();
 
@@ -209,7 +207,7 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
     do {
         clfs.emplace_back(X(combs.Get(), eg::indexing::all));
     } while (combs.Next());
-        
+
     // iteration
     std::mt19937 rng(seed);
 
@@ -218,13 +216,13 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
 
     auto step = [&] {
         std::shuffle(y.begin(), y.end(), rng);
-    
+
         auto loss = [&y](const std::vector<Class> &pred) {
             auto conf = Confusion{y, pred};
             return conf.Error();
         };
 
-        for (const auto& clf : clfs) {
+        for (const auto &clf : clfs) {
             auto prediction = clf.Predict(X);
 
             if (loss(prediction) == k || loss(Reverse(prediction)) == k) {
@@ -233,12 +231,12 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
             }
         }
     };
-    
+
     if constexpr (visualize) {
         for (auto iter : tq::trange(++iters)) {
             step();
         }
-        
+
         std::cerr << "\n";
     } else {
         for (size_t iter = 0; iter < iters; ++iter) {
@@ -278,9 +276,9 @@ std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, s
     return {{tp, fp, fn, tn}};
 }
 
-template<bool visualize>
+template <bool visualize>
 std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
-                                 const std::vector<LinearClassifier>& clfs) {
+                                 const std::vector<LinearClassifier> &clfs) {
     size_t length = X.rows();
     size_t dim = X.cols();
 
@@ -295,7 +293,7 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
 
     // iteration
     std::set<std::vector<int>> colors;
-    
+
     auto step = [&](LinearClassifier clf) {
         auto pred = clf.Predict(X);
 
@@ -322,8 +320,8 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
                 auto zero2neg = zeroinds.size() - zero2pos;
 
                 // distribute ground
-                auto distribute = Distribute(posinds.size() + zero2pos,
-                                             neginds.size() + zero2neg, truenum, falsenum, k);
+                auto distribute = Distribute(posinds.size() + zero2pos, neginds.size() + zero2neg,
+                                             truenum, falsenum, k);
 
                 if (!distribute) {
                     continue;
@@ -334,8 +332,8 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
                 auto zero_combs = Combinations(zeroinds.begin(), zeroinds.end(), zero2pos);
                 do {
                     auto z2p_cmb = zero_combs.Get();
-                    auto z2n_cmb = Residual(zeroinds.begin(), zeroinds.end(),
-                                            z2p_cmb.begin(), z2p_cmb.end());
+                    auto z2n_cmb =
+                        Residual(zeroinds.begin(), zeroinds.end(), z2p_cmb.begin(), z2p_cmb.end());
 
                     auto positives = posinds;
                     positives.insert(positives.end(), z2p_cmb.begin(), z2p_cmb.end());
@@ -362,13 +360,13 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
     };
 
     if constexpr (visualize) {
-        for (const auto& clf : tq::tqdm(clfs)) {
+        for (const auto &clf : tq::tqdm(clfs)) {
             step(clf);
         }
-        
+
         std::cerr << "\n";
     } else {
-        for (const auto& clf : clfs) {
+        for (const auto &clf : clfs) {
             step(clf);
         }
     }
@@ -376,41 +374,39 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
     return colors;
 }
 
-std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
-                                       size_t k, float eps, size_t parallel = kThreads) {
+std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y, size_t k,
+                                       float eps, size_t parallel = kThreads) {
     std::tuple<size_t, size_t> drain;
 
-    std::mutex mutex; 
+    std::mutex mutex;
     std::vector<std::thread> threads;
     for (size_t index = 0; index < parallel; ++index) {
         threads.emplace_back([index, parallel, &mutex, &drain, &X, &y, k, eps]() {
             std::tuple<size_t, size_t> proba;
 
             if (index == parallel - 1) {
-                proba = Approximate<true>(
-                    X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
-                    kSeeds[index]);
+                proba = Approximate<true>(X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
+                                          kSeeds[index]);
             } else {
-                proba = Approximate<false>(
-                    X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
-                    kSeeds[index]);
+                proba = Approximate<false>(X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
+                                           kSeeds[index]);
             }
-            
+
             std::lock_guard guard{mutex};
             std::get<0>(drain) += std::get<0>(proba);
             std::get<1>(drain) += std::get<1>(proba);
         });
     }
 
-    for (auto&& thread: threads) {
+    for (auto &&thread : threads) {
         thread.join();
     }
 
     return drain;
 }
 
-std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y,
-                                 size_t k, size_t parallel = kThreads) {
+std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
+                                 size_t parallel = kThreads) {
     size_t length = X.rows();
     size_t dim = X.cols();
 
@@ -432,7 +428,7 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
             clfs.emplace_back(X(comb, eg::indexing::all));
         } while (combs.Next());
     }
-    
+
     std::set<std::vector<int>> drain;
 
     std::mutex mutex;
@@ -443,7 +439,7 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
             auto end = clfs.size() * (index + 1) / parallel;
 
             std::set<std::vector<int>> colors;
-            
+
             if (index == parallel - 1) {
                 colors = Exact<true>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
             } else {
@@ -454,8 +450,8 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
             drain.insert(colors.begin(), colors.end());
         });
     }
-    
-    for (auto&& thread: threads) {
+
+    for (auto &&thread : threads) {
         thread.join();
     }
 

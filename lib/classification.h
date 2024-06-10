@@ -35,22 +35,24 @@ eg::VectorXf Normalize(const eg::MatrixXf &X);
 // linclass
 class LinearClassifier;
 namespace std {
-    template <>
-    class hash<LinearClassifier> {
-    public:
-        std::size_t operator()(const LinearClassifier& clf) const;
-    };
-}
+template <>
+class hash<LinearClassifier> {
+public:
+    std::size_t operator()(const LinearClassifier &clf) const;
+};
+}  // namespace std
 
 class LinearClassifier {
-friend class std::hash<LinearClassifier>;
+    friend class std::hash<LinearClassifier>;
 
 public:
-    LinearClassifier(const eg::VectorXf& point, const eg::VectorXf& normal);
+    LinearClassifier(const eg::VectorXf &point, const eg::VectorXf &normal);
     LinearClassifier(const eg::MatrixXf &X);
 
-    static LinearClassifier Fit(const eg::MatrixXf &X, std::function<int(const std::vector<Class> &)> Loss);
-    static LinearClassifier Fit(const eg::MatrixXf &X, std::function<int(const std::vector<Class> &)> Loss,
+    static LinearClassifier Fit(const eg::MatrixXf &X,
+                                std::function<int(const std::vector<Class> &)> Loss);
+    static LinearClassifier Fit(const eg::MatrixXf &X,
+                                std::function<int(const std::vector<Class> &)> Loss,
                                 const std::vector<LinearClassifier> &clfs);
     std::vector<Class> Predict(const eg::MatrixXf &X) const;
 
@@ -64,7 +66,6 @@ private:
 };
 // linclass
 
-std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
-                                       size_t k, float eps);
-std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y,
-                                 size_t k);
+std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y, size_t k,
+                                       float eps);
+std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k);
