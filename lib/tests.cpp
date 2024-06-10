@@ -8,6 +8,9 @@
 #include <vector>
 #include <cmath>
 
+constexpr size_t kApproximate = 8;
+constexpr size_t kExact = 4;
+
 template <class Iter, class Stream>
 void Print(Iter begin, Iter end, Stream *stream) {
     for (auto iter = begin; iter != end; ++iter) {
@@ -73,20 +76,20 @@ void TestLinearClassifier(const eg::MatrixXf &X, const std::vector<Class> &y) {
 }
 
 void TestApproximate(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k, float eps) {
-    auto [nominator, denominator] = Approximate(X, y, k, eps);
+    auto [nominator, denominator] = Approximate(X, y, k, eps, kApproximate);
     std::cout << nominator << " " << denominator << " "
               << static_cast<float>(nominator) / denominator << "\n";
 }
 
 void TestExact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k) {
-    auto [nominator, denominator] = Exact(X, y, k);
+    auto [nominator, denominator] = Exact(X, y, k, kExact);
     std::cout << nominator << " " << denominator << " "
               << static_cast<float>(nominator) / denominator << "\n";
 }
 
 void TestProba(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k, float eps) {
-    auto [app_nominator, app_denominator] = Approximate(X, y, k, eps);
-    auto [ext_nominator, ext_denominator] = Exact(X, y, k);
+    auto [app_nominator, app_denominator] = Approximate(X, y, k, eps, kApproximate);
+    auto [ext_nominator, ext_denominator] = Exact(X, y, k, kExact);
 
     float app_proba = app_nominator;
     app_proba /= app_denominator;

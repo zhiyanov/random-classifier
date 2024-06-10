@@ -31,9 +31,6 @@ constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763, 59,  263, 922,
                                326, 797, 22,  295, 362, 939, 319, 403, 789, 702, 964, 346, 887,
                                743, 235, 276, 631, 597, 772, 459, 738, 376, 146, 949, 901};
 
-constexpr size_t kApproximate = 64;
-constexpr size_t kExact = 16;
-
 constexpr float kEpsilon = 1e-5;
 
 template <class Iter, class Stream>
@@ -377,12 +374,12 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
 
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y, size_t k,
                                        float eps, size_t parallel) {
-    std::tuple<size_t, size_t> drain;
+    std::vector<std::tuple<size_t, size_t>> drains(parallel);
 
     std::mutex mutex;
     std::vector<std::thread> threads;
     for (size_t index = 0; index < parallel; ++index) {
-        threads.emplace_back([index, parallel, &mutex, &drain, &X, &y, k, eps]() {
+        threads.emplace_back([index, parallel, &mutex, &drains, &X, &y, k, eps]() {
             std::tuple<size_t, size_t> proba;
 
             if (index == parallel - 1) {
@@ -394,14 +391,21 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
             }
 
             std::lock_guard guard{mutex};
-            std::get<0>(drain) += std::get<0>(proba);
-            std::get<1>(drain) += std::get<1>(proba);
+            std::get<0>(drains[index]) += std::get<0>(proba);
+            std::get<1>(drains[index]) += std::get<1>(proba);
         });
     }
 
     for (auto &&thread : threads) {
         thread.join();
     }
+    
+    std::tuple<size_t, size_t> drain;
+    for (auto index : tq::trange(parallel)) {
+        std::get<0>(drain) = std::get<0>(drains[index]);
+        std::get<1>(drain) = std::get<1>(drains[index]);
+    }
+    std::cerr << "\n";
 
     return drain;
 }
@@ -430,12 +434,12 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
         } while (combs.Next());
     }
 
-    std::set<std::vector<int>> drain;
+    std::vector<std::set<std::vector<int>>> drains(parallel);
 
     std::mutex mutex;
     std::vector<std::thread> threads;
     for (size_t index = 0; index < parallel; ++index) {
-        threads.emplace_back([index, parallel, &mutex, &drain, &X, &y, k, &clfs] {
+        threads.emplace_back([index, parallel, &mutex, &drains, &X, &y, k, &clfs] {
             auto begin = clfs.size() * index / parallel;
             auto end = clfs.size() * (index + 1) / parallel;
 
@@ -448,13 +452,19 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
             }
 
             std::lock_guard guard{mutex};
-            drain.insert(colors.begin(), colors.end());
+            drains[index] = std::move(colors);
         });
     }
 
     for (auto &&thread : threads) {
         thread.join();
     }
+
+    std::set<std::vector<int>> drain;
+    for (auto index : tq::trange(parallel)) {
+        drain.insert(drains[index].begin(), drains[index].end());
+    }
+    std::cerr << "\n";
 
     return {drain.size(), Binom(truenum + falsenum, truenum)};
 }

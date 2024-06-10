@@ -17,7 +17,7 @@ constexpr int kPositive = 1;
 constexpr int kNegative = 0;
 
 constexpr size_t kApproximate = 64;
-constexpr size_t kExact = 16;
+constexpr size_t kExact = 8;
 
 std::tuple<eg::MatrixXf, std::vector<Class>> Extract(
     const py::array_t<float, py::array::c_style> &D,
