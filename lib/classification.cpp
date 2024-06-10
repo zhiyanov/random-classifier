@@ -21,10 +21,20 @@
 #include <numeric>
 
 #include <thread>
+#include <mutex>
 
 namespace eg = Eigen;
 
-constexpr std::array kSeeds = {123, 452, 864, 934, 937, 481, 853, 733};
+constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763,  59,
+                               263, 922, 165, 531, 634, 350, 285, 158,
+                               968, 807, 716, 348, 675, 679, 468, 396,
+                               424, 286, 919, 253, 935, 752, 237,  73,
+                               732,   9, 477,  39, 446,  55, 386, 326,
+                               797,  22, 295, 362, 939, 319, 403, 789,
+                               702, 964, 346, 887, 743, 235, 276, 631,
+                               597, 772, 459, 738, 376, 146, 949, 901};
+
+constexpr size_t kThreads = kSeeds.size();
 
 constexpr float kEpsilon = 1e-5;
 
@@ -187,13 +197,9 @@ LinearClassifier LinearClassifier::Opposite() const {
 }
 // linclass
 
-template <size_t seed, bool visualize>
+template <bool visualize>
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
-                                       size_t k, float eps);
-
-template <size_t seed, bool visualize>
-std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
-                                       size_t k, float eps) {
+                                       size_t k, float eps, size_t seed) {
     size_t length = X.rows();
     size_t dim = X.cols();
 
@@ -243,69 +249,6 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
     return {count, iters};
 }
 
-std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
-                                       size_t k, float eps) {
-    std::array<std::tuple<size_t, size_t>, kSeeds.size()> apps;
-    std::vector<std::thread> threads;
-
-    /*
-    threads.emplace_back([&]() {
-        apps[0] = Approximate<kSeeds[0], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    threads.emplace_back([&]() {
-        apps[1] = Approximate<kSeeds[1], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    threads.emplace_back([&]() {
-        apps[2] = Approximate<kSeeds[2], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    threads.emplace_back([&]() {
-        apps[3] = Approximate<kSeeds[3], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    threads.emplace_back([&]() {
-        apps[4] = Approximate<kSeeds[4], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    threads.emplace_back([&]() {
-        apps[5] = Approximate<kSeeds[5], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    threads.emplace_back([&]() {
-        apps[6] = Approximate<kSeeds[6], false>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    threads.emplace_back([&]() {
-        apps[7] = Approximate<kSeeds[7], true>(X, y, k, eps * std::sqrt(static_cast<float>(8)));
-    });
-    */
-    
-    threads.emplace_back([&]() {
-        apps[0] = Approximate<kSeeds[0], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
-    });
-    threads.emplace_back([&]() {
-        apps[1] = Approximate<kSeeds[1], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
-    });
-    threads.emplace_back([&]() {
-        apps[2] = Approximate<kSeeds[2], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
-    });
-    threads.emplace_back([&]() {
-        apps[3] = Approximate<kSeeds[3], false>(X, y, k, eps * std::sqrt(static_cast<float>(4)));
-    });
-
-    for (auto&& thread: threads) {
-        thread.join();
-    }
-
-    /*
-    auto nominator = std::get<0>(apps[0]) + std::get<0>(apps[1]) + std::get<0>(apps[1]) + std::get<0>(apps[3])
-                   + std::get<0>(apps[4]) + std::get<0>(apps[5]) + std::get<0>(apps[6]) + std::get<0>(apps[7]);
-
-    auto denominator = std::get<1>(apps[0]) + std::get<1>(apps[1]) + std::get<1>(apps[1]) + std::get<1>(apps[3])
-                     + std::get<1>(apps[4]) + std::get<1>(apps[5]) + std::get<1>(apps[6]) + std::get<1>(apps[7]);
-    */
-    auto nominator = std::get<0>(apps[0]) + std::get<0>(apps[1]) + std::get<0>(apps[1]) + std::get<0>(apps[3]);
-    auto denominator = std::get<1>(apps[0]) + std::get<1>(apps[1]) + std::get<1>(apps[1]) + std::get<1>(apps[3]);
-
-    return {nominator, denominator};
-}
-
-
 std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, size_t n, size_t t,
                                                                      size_t f, size_t k) {
     // true positive
@@ -336,7 +279,8 @@ std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, s
 }
 
 template<bool visualize>
-std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k) {
+std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
+                                 const std::vector<LinearClassifier>& clfs) {
     size_t length = X.rows();
     size_t dim = X.cols();
 
@@ -347,16 +291,6 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
         } else if (a == Class::Negative) {
             falsenum++;
         }
-    }
-
-    // build classifiers
-    std::vector<LinearClassifier> clfs;
-    {
-        auto combs = Combs(length, dim);
-        do {
-            auto comb = combs.Get();
-            clfs.emplace_back(X(comb, eg::indexing::all));
-        } while (combs.Next());
     }
 
     // iteration
@@ -439,9 +373,91 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
         }
     }
 
-    return {colors.size(), Binom(truenum + falsenum, truenum)};
+    return colors;
 }
 
-std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k) {
-    return Exact<false>(X, y, k);
+std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y,
+                                       size_t k, float eps, size_t parallel = kThreads) {
+    std::tuple<size_t, size_t> drain;
+
+    std::mutex mutex; 
+    std::vector<std::thread> threads;
+    for (size_t index = 0; index < parallel; ++index) {
+        threads.emplace_back([index, parallel, &mutex, &drain, &X, &y, k, eps]() {
+            std::tuple<size_t, size_t> proba;
+
+            if (index == parallel - 1) {
+                proba = Approximate<true>(
+                    X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
+                    kSeeds[index]);
+            } else {
+                proba = Approximate<false>(
+                    X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
+                    kSeeds[index]);
+            }
+            
+            std::lock_guard guard{mutex};
+            std::get<0>(drain) += std::get<0>(proba);
+            std::get<1>(drain) += std::get<1>(proba);
+        });
+    }
+
+    for (auto&& thread: threads) {
+        thread.join();
+    }
+
+    return drain;
+}
+
+std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y,
+                                 size_t k, size_t parallel = kThreads) {
+    size_t length = X.rows();
+    size_t dim = X.cols();
+
+    size_t truenum = 0, falsenum = 0;
+    for (auto a : y) {
+        if (a == Class::Positive) {
+            truenum++;
+        } else if (a == Class::Negative) {
+            falsenum++;
+        }
+    }
+
+    // build classifiers
+    std::vector<LinearClassifier> clfs;
+    {
+        auto combs = Combs(length, dim);
+        do {
+            auto comb = combs.Get();
+            clfs.emplace_back(X(comb, eg::indexing::all));
+        } while (combs.Next());
+    }
+    
+    std::set<std::vector<int>> drain;
+
+    std::mutex mutex;
+    std::vector<std::thread> threads;
+    for (size_t index = 0; index < parallel; ++index) {
+        threads.emplace_back([index, parallel, &mutex, &drain, &X, &y, k, &clfs] {
+            auto begin = clfs.size() * index / parallel;
+            auto end = clfs.size() * (index + 1) / parallel;
+
+            std::set<std::vector<int>> colors;
+            
+            if (index == parallel - 1) {
+                colors = Exact<true>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
+            } else {
+                colors = Exact<false>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
+            }
+
+            std::lock_guard guard{mutex};
+            drain.insert(colors.begin(), colors.end());
+        });
+    }
+    
+    for (auto&& thread: threads) {
+        thread.join();
+    }
+
+    return {drain.size(), Binom(truenum + falsenum, truenum)};
 }

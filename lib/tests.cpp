@@ -206,11 +206,11 @@ int main() {
     //           5);
 
     std::cout << "TestProba\n"; 
-    // TestProba(eg::MatrixXf({{0, 0}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8}, {0, 1}, {0.2, 1}, {0.4, 1}, {0.6, 1}, {0.8, 1}, {1, 1},
-    //                         {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
-    //           std::vector<Class>({Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative,
-    //                               Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive}),
-    //           5, 1e-2);
+    TestProba(eg::MatrixXf({{0, 0}, {0, 0.2}, {0, 0.4}, {0, 0.6}, {0, 0.8}, {0, 1}, {0.2, 1}, {0.4, 1}, {0.6, 1}, {0.8, 1}, {1, 1},
+                            {0, 0}, {0.2, 0}, {0.4, 0}, {0.6, 0}, {0.8, 0}, {1, 0}, {1, 0.2}, {1, 0.4}, {1, 0.6}, {1, 0.8}, {1, 1}}),
+              std::vector<Class>({Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative, Class::Negative,
+                                  Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive, Class::Positive}),
+              5, 1e-2);
     
     TestProba(eg::MatrixXf({{-0.54827213, 0.05780018}, {-0.05645907, 0.726147},
                             {1.0522097, 0.1956428}, {-0.24426988, 0.92464584}}),
