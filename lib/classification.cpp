@@ -1,5 +1,6 @@
 #include "classification.h"
 #include "combinatorics.h"
+#include "mask.h"
 
 #include "eigen/Eigen/Dense"
 #include "tqdm/tqdm.hpp"
@@ -275,8 +276,8 @@ std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, s
 }
 
 template <bool visualize>
-std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
-                                 const std::vector<LinearClassifier> &clfs) {
+std::set<Mask> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
+                     const std::vector<LinearClassifier> &clfs) {
     size_t length = X.rows();
     size_t dim = X.cols();
 
@@ -290,7 +291,7 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
     }
 
     // iteration
-    std::set<std::vector<int>> colors;
+    std::set<Mask> colors;
 
     auto step = [&](LinearClassifier clf) {
         auto pred = clf.Predict(X);
@@ -348,8 +349,8 @@ std::set<std::vector<int>> Exact(const eg::MatrixXf &X, const std::vector<Class>
                             auto trues = tp_comb;
                             trues.insert(trues.end(), fn_comb.begin(), fn_comb.end());
 
-                            std::sort(trues.begin(), trues.end());
-                            colors.emplace(std::move(trues));
+                            // std::sort(trues.begin(), trues.end());
+                            colors.emplace(trues);
                         } while (fn_combs.Next());
                     } while (tp_combs.Next());
                 } while (zero_combs.Next());
@@ -410,6 +411,36 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
     return drain;
 }
 
+template <typename T>
+std::set<T> Union(std::vector<std::set<T>>&& vec) {
+    while (vec.size() > 1) {
+        std::vector<std::set<T>> reduction(vec.size() / 2);
+
+        std::mutex mutex; 
+        std::vector<std::thread> threads;
+        for (size_t index = 0; index < reduction.size(); ++index) {
+            threads.emplace_back([index, &mutex, &reduction, &vec] {
+                std::set<T> uni = std::move(vec[index * 2]);
+                if (index * 2 + 1 < vec.size()) {
+                    std::set<T> ins = std::move(vec[index * 2 + 1]);
+                    uni.insert(ins.begin(), ins.end());
+                }
+
+                std::lock_guard guard{mutex};
+                reduction[index] = std::move(uni);
+            });
+        }
+    
+        for (auto &&thread : threads) {
+            thread.join();
+        }
+
+        vec = std::move(reduction);
+    }
+
+    return vec.front();
+}
+
 std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
                                  size_t parallel) {
     size_t length = X.rows();
@@ -434,7 +465,7 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
         } while (combs.Next());
     }
 
-    std::vector<std::set<std::vector<int>>> drains(parallel);
+    std::vector<std::set<Mask>> drains(parallel);
 
     std::mutex mutex;
     std::vector<std::thread> threads;
@@ -443,7 +474,7 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
             auto begin = clfs.size() * index / parallel;
             auto end = clfs.size() * (index + 1) / parallel;
 
-            std::set<std::vector<int>> colors;
+            std::set<Mask> colors;
 
             if (index == parallel - 1) {
                 colors = Exact<true>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
@@ -460,7 +491,7 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
         thread.join();
     }
 
-    std::set<std::vector<int>> drain;
+    std::set<Mask> drain;
     for (auto index : tq::trange(parallel)) {
         drain.insert(drains[index].begin(), drains[index].end());
     }

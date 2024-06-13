@@ -58,7 +58,7 @@ public:
 
     LinearClassifier Opposite() const;
 
-    // bool operator==(const LinearClassifier& rhs) const;
+    bool operator==(const LinearClassifier& rhs) const;
 
 private:
     eg::VectorXf point_;

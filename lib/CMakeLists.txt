@@ -10,6 +10,6 @@ pybind11_add_module(
  	fast SHARED
 	fast.cpp
 	classification.cpp
+    mask.cpp
 	combinatorics.cpp)
 	
-
