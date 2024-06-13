@@ -34,6 +34,8 @@ constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763, 59,  263, 922,
 
 constexpr float kEpsilon = 1e-5;
 
+constexpr size_t kBinom = 0;
+
 template <class Iter, class Stream>
 void Print(Iter begin, Iter end, Stream *stream) {
     for (auto iter = begin; iter != end; ++iter) {
@@ -497,5 +499,5 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
     }
     std::cerr << "\n";
 
-    return {drain.size(), Binom(truenum + falsenum, truenum)};
+    return {drain.size(), kBinom};
 }

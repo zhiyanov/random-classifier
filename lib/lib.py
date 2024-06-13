@@ -1,8 +1,9 @@
-from .fast import enm_proba_exact
+from .fast import enm_proba_exact as enm_proba_exact_
 from .fast import enm_proba_apprx
 
 import numpy as np
 from sklearn.svm import SVC
+from scipy.special import comb
 
 import tqdm
 
@@ -50,3 +51,9 @@ def svm_proba(X, y, k, eps):
             prb_less += 1
 
     return prb_equal - prb_less, iters
+
+def enm_proba_exact(X, y, k, parallel):
+    n = y.sum()
+    m = len(y) - y.sum()
+    nominator, _ = enm_proba_exact_(X, y, k, parallel)
+    return nominator, comb(n + m, n, exact=True)
