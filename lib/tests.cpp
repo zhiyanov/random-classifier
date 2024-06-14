@@ -77,30 +77,20 @@ void TestLinearClassifier(const eg::MatrixXf &X, const std::vector<Class> &y) {
 
 void TestApproximate(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k, float eps) {
     auto [nominator, denominator] = Approximate(X, y, k, eps, kApproximate);
-    std::cout << nominator << " " << denominator << " "
-              << static_cast<float>(nominator) / denominator << "\n";
+    std::cout << nominator << " " << denominator << "\n";
 }
 
 void TestExact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k) {
     auto [nominator, denominator] = Exact(X, y, k, kExact);
-    std::cout << nominator << " " << denominator << " "
-              << static_cast<float>(nominator) / denominator << "\n";
+    std::cout << nominator << " " << denominator << "\n";
 }
 
 void TestProba(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k, float eps) {
     auto [app_nominator, app_denominator] = Approximate(X, y, k, eps, kApproximate);
     auto [ext_nominator, ext_denominator] = Exact(X, y, k, kExact);
 
-    float app_proba = app_nominator;
-    app_proba /= app_denominator;
-
-    float ext_proba = ext_nominator;
-    ext_proba /= ext_denominator;
-
     std::cout << "Approximate: " << app_nominator << " " << app_denominator << "\n";
     std::cout << "Exact: " << ext_nominator << " " << ext_denominator << "\n";
-    std::cout << app_proba << " " << ext_proba << " ";
-    std::cout << (std::fabs(app_proba - ext_proba) < eps * 9) << "\n";
 }
 
 int main() {

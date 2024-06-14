@@ -226,7 +226,7 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
         for (const auto &clf : clfs) {
             auto prediction = clf.Predict(X);
 
-            if (loss(prediction) == k || loss(Reverse(prediction)) == k) {
+            if (loss(prediction) <= k || loss(Reverse(prediction)) <= k) {
                 count++;
                 break;
             }
