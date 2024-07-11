@@ -24,6 +24,8 @@
 #include <thread>
 #include <mutex>
 
+using Mask = LongMask<1>;
+
 namespace eg = Eigen;
 
 constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763, 59,  263, 922, 165, 531, 634,
