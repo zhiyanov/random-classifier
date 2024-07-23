@@ -24,7 +24,7 @@
 #include <thread>
 #include <mutex>
 
-using Mask = LongMask<1>;
+using Mask = LongMask<8>;
 
 namespace eg = Eigen;
 
@@ -353,7 +353,6 @@ std::set<Mask> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t 
                             auto trues = tp_comb;
                             trues.insert(trues.end(), fn_comb.begin(), fn_comb.end());
 
-                            // std::sort(trues.begin(), trues.end());
                             colors.emplace(trues);
                         } while (fn_combs.Next());
                     } while (tp_combs.Next());
@@ -404,8 +403,8 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
     for (auto &&thread : threads) {
         thread.join();
     }
-    
-    std::tuple<size_t, size_t> drain;
+
+    std::tuple<size_t, size_t> drain = {0, 0};
     for (auto index : tq::trange(parallel)) {
         std::get<0>(drain) = std::get<0>(drains[index]);
         std::get<1>(drain) = std::get<1>(drains[index]);
@@ -416,11 +415,11 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
 }
 
 template <typename T>
-std::set<T> Union(std::vector<std::set<T>>&& vec) {
+std::set<T> Union(std::vector<std::set<T>> &&vec) {
     while (vec.size() > 1) {
         std::vector<std::set<T>> reduction(vec.size() / 2);
 
-        std::mutex mutex; 
+        std::mutex mutex;
         std::vector<std::thread> threads;
         for (size_t index = 0; index < reduction.size(); ++index) {
             threads.emplace_back([index, &mutex, &reduction, &vec] {
@@ -434,7 +433,7 @@ std::set<T> Union(std::vector<std::set<T>>&& vec) {
                 reduction[index] = std::move(uni);
             });
         }
-    
+
         for (auto &&thread : threads) {
             thread.join();
         }
