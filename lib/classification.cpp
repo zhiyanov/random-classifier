@@ -24,7 +24,7 @@
 #include <thread>
 #include <mutex>
 
-using Mask = LongMask<1>;
+using Mask = LongMask<4>;
 
 namespace eg = Eigen;
 
@@ -405,10 +405,10 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
         thread.join();
     }
     
-    std::tuple<size_t, size_t> drain;
+    std::tuple<size_t, size_t> drain = {0, 0};
     for (auto index : tq::trange(parallel)) {
-        std::get<0>(drain) = std::get<0>(drains[index]);
-        std::get<1>(drain) = std::get<1>(drains[index]);
+        std::get<0>(drain) += std::get<0>(drains[index]);
+        std::get<1>(drain) += std::get<1>(drains[index]);
     }
     std::cerr << "\n";
 
