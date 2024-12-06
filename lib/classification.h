@@ -20,6 +20,7 @@ public:
 
     int Error() const;
     int Accur() const;
+    int Sided() const;
 
 private:
     int tp_ = 0, fp_ = 0;

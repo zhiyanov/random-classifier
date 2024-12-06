@@ -24,7 +24,8 @@
 #include <thread>
 #include <mutex>
 
-using Mask = LongMask<4>;
+// using Mask = LongMask<4>;
+using Mask = ShortMask;
 
 namespace eg = Eigen;
 
@@ -37,6 +38,10 @@ constexpr std::array kSeeds = {961, 221, 987, 109, 644, 181, 763, 59,  263, 922,
 constexpr float kEpsilon = 1e-5;
 
 constexpr size_t kBinom = 0;
+
+constexpr bool kVisualize = false;
+
+constexpr bool kSided = true;
 
 template <class Iter, class Stream>
 void Print(Iter begin, Iter end, Stream *stream) {
@@ -86,6 +91,14 @@ int Confusion::Error() const {
 
 int Confusion::Accur() const {
     return tp_ + tn_ + un_;
+}
+
+int Confusion::Sided() const {
+    if (fp_ < fn_) {
+        return fn_ * 2;
+    } else {
+        return fp_ * 2;
+    }
 }
 // metrics
 
@@ -198,7 +211,7 @@ LinearClassifier LinearClassifier::Opposite() const {
 }
 // linclass
 
-template <bool visualize>
+template <bool visualize, bool sided>
 std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class> y, size_t k,
                                        float eps, size_t seed) {
     size_t length = X.rows();
@@ -222,7 +235,11 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
 
         auto loss = [&y](const std::vector<Class> &pred) {
             auto conf = Confusion{y, pred};
-            return conf.Error();
+            if constexpr (sided) {
+                return conf.Sided();
+            } else {
+                return conf.Error();
+            }
         };
 
         for (const auto &clf : clfs) {
@@ -250,8 +267,15 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
     return {count, iters};
 }
 
+template <bool sided>
 std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, size_t n, size_t t,
                                                                      size_t f, size_t k) {
+    if constexpr (sided) {
+        if (p != t || n != f) {
+            return std::nullopt;
+        }
+    }
+
     // true positive
     if (p * 2 + n < f + k || (p * 2 + n - f - k) % 2) {
         return std::nullopt;
@@ -279,7 +303,7 @@ std::optional<std::tuple<size_t, size_t, size_t, size_t>> Distribute(size_t p, s
     return {{tp, fp, fn, tn}};
 }
 
-template <bool visualize>
+template <bool visualize, bool sided>
 std::set<Mask> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t k,
                      const std::vector<LinearClassifier> &clfs) {
     size_t length = X.rows();
@@ -323,8 +347,9 @@ std::set<Mask> Exact(const eg::MatrixXf &X, const std::vector<Class> &y, size_t 
                 auto zero2neg = zeroinds.size() - zero2pos;
 
                 // distribute ground
-                auto distribute = Distribute(posinds.size() + zero2pos, neginds.size() + zero2neg,
-                                             truenum, falsenum, k);
+                auto distribute = Distribute<sided>(posinds.size() + zero2pos,
+                                                    neginds.size() + zero2neg,
+                                                    truenum, falsenum, k);
 
                 if (!distribute) {
                     continue;
@@ -387,11 +412,11 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
             std::tuple<size_t, size_t> proba;
 
             if (index == parallel - 1) {
-                proba = Approximate<true>(X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
-                                          kSeeds[index]);
+                proba = Approximate<kVisualize, kSided>(X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
+                                                        kSeeds[index]);
             } else {
-                proba = Approximate<false>(X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
-                                           kSeeds[index]);
+                proba = Approximate<false, kSided>(X, y, k, eps * std::sqrt(static_cast<float>(parallel)),
+                                                   kSeeds[index]);
             }
 
             std::lock_guard guard{mutex};
@@ -405,11 +430,14 @@ std::tuple<size_t, size_t> Approximate(const eg::MatrixXf &X, std::vector<Class>
     }
     
     std::tuple<size_t, size_t> drain = {0, 0};
-    for (auto index : tq::trange(parallel)) {
+    // auto tqrange = tq::trange(parallel);
+    // tqrange.set_prefix("Merge ");
+    // for (auto index : tqrange) {
+    for (size_t index = 0; index < parallel; ++index) {
         std::get<0>(drain) += std::get<0>(drains[index]);
         std::get<1>(drain) += std::get<1>(drains[index]);
     }
-    std::cerr << "\n";
+    // std::cerr << "\n";
 
     return drain;
 }
@@ -480,9 +508,9 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
             std::set<Mask> colors;
 
             if (index == parallel - 1) {
-                colors = Exact<true>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
+                colors = Exact<kVisualize, kSided>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
             } else {
-                colors = Exact<false>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
+                colors = Exact<false, kSided>(X, y, k, {clfs.begin() + begin, clfs.begin() + end});
             }
 
             std::lock_guard guard{mutex};
@@ -495,10 +523,13 @@ std::tuple<size_t, size_t> Exact(const eg::MatrixXf &X, const std::vector<Class>
     }
 
     std::set<Mask> drain;
-    for (auto index : tq::trange(parallel)) {
+    // auto tqrange = tq::trange(parallel);
+    // tqrange.set_prefix("Merge ");
+    // for (auto index : tqrange) {
+    for (size_t index = 0; index < parallel; ++index) {
         drain.insert(drains[index].begin(), drains[index].end());
     }
-    std::cerr << "\n";
+    // std::cerr << "\n";
 
     return {drain.size(), kBinom};
 }
